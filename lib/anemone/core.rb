@@ -25,7 +25,12 @@ module Anemone
     # Hash of options for the crawl
     attr_reader :opts
 
+    # Maximum number of pages to fetch, default to all.
+    DEFAULT_MAX_PAGES = -1
+
     DEFAULT_OPTS = {
+      # maximum number of pages to fetch
+      :max_pages => DEFAULT_MAX_PAGES,
       # run 4 Tentacle threads to fetch pages
       :threads => 4,
       # disable verbose output
@@ -79,6 +84,7 @@ module Anemone
       @skip_link_patterns = []
       @after_crawl_blocks = []
       @opts = opts
+      @crawled_pages = 0
 
       yield self if block_given?
     end
@@ -161,11 +167,13 @@ module Anemone
       @urls.each{ |url| link_queue.enq(url) }
 
       loop do
+        break if @crawled_pages >= @opts[:max_pages] && @opts[:max_pages] != DEFAULT_MAX_PAGES
         page = page_queue.deq
         @pages.touch_key page.url
         puts "#{page.url} Queue: #{link_queue.size}" if @opts[:verbose]
         do_page_blocks page
         page.discard_doc! if @opts[:discard_page_bodies]
+        @crawled_pages += 1
 
         links = links_to_follow page
         links.each do |link|
