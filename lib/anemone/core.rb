@@ -167,7 +167,6 @@ module Anemone
       @urls.each{ |url| link_queue.enq(url) }
 
       loop do
-        break if @crawled_pages >= @opts[:max_pages] && @opts[:max_pages] != DEFAULT_MAX_PAGES
         page = page_queue.deq
         @pages.touch_key page.url
         puts "#{page.url} Queue: #{link_queue.size}" if @opts[:verbose]
@@ -183,12 +182,14 @@ module Anemone
 
         @pages[page.url] = page
 
+        enough_pages = @crawled_pages >= @opts[:max_pages] && @opts[:max_pages] != DEFAULT_MAX_PAGES
+
         # if we are done with the crawl, tell the threads to end
-        if link_queue.empty? and page_queue.empty?
-          until link_queue.num_waiting == @tentacles.size
+        if (link_queue.empty? and page_queue.empty?) || enough_pages
+          until (link_queue.num_waiting == @tentacles.size) || enough_pages
             Thread.pass
           end
-          if page_queue.empty?
+          if page_queue.empty? || enough_pages
             @tentacles.size.times { link_queue << :END }
             break
           end
